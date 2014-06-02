@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # <nbformat>3.0</nbformat>
 
-# <codecell>
+
 
 from nltk.corpus import stopwords
 import string
@@ -12,140 +12,27 @@ import os
 import subprocess
 import pickle
 import matplotlib.pyplot as plt
-
-# <markdowncell>
-
-# ## Relevant paths & services
-
-# <codecell>
-
-orgpath = '/Users/erickpeirson/Model Organisms in Neuroscience/data'
-
-# <codecell>
-
-datapath = orgpath + '2014-01-18 RDF'
-
-# <codecell>
-
-taxonomy_api = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=taxonomy"
-taxonomy_api_get = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy"
-
-# <markdowncell>
-
-# ## Methods
-
-# <codecell>
-
-def find_names(paper, linnaeus_path="/Applications/linnaeus/bin/linnaeus-2.0.jar", tmp_path="/tmp/"):
-    """
-    Yields a NCBI Taxonomy id for organisms, via LINNAEUS NER.
-
-    Calls the LINNAEUS NER engine to find organism names (common & scientific) in the
-    paper title and abstract.
-    """
-
-    with open(tmp_path+"text.txt", 'w') as f:
-        f.write(str(strip_non_ascii(paper.title)) + "\n")
-        f.write(str(strip_non_ascii(paper.abstract)) + "\n")
-    
-    subprocess.call(['java', '-jar', linnaeus_path, '--text', tmp_path+"text.txt", '--out', tmp_path+"results.tsv" ])
-    
-    with open(tmp_path+"results.tsv", 'r') as f:
-        results = [ line.strip('\n').split('\t') for line in f.readlines() ]
-    
-    return set([ r[0].split(':')[-1] for r in results[1:] ])
-
-# <codecell>
-
-# Cache for classify()
-classified = {}
-
-# <codecell>
-
-def classify(taxon):
-    """
-    Yields the higher-level taxonomic group to which taxon belongs.
-
-    Retrieves data for taxon from NCBI Taxonomy, then passes the result
-    to merge() to classify. Uses classified (dict) to cache results.
-    """
-    try:
-        return classified[taxon]
-    except KeyError:
-        response = urllib2.urlopen(taxonomy_api_get + "&id=" + taxon).read()
-        xml = ET.fromstring(response)
-        merged = merge(xml)
-        classified[taxon] = merged 
-        return merged
-
-# <codecell>
-
-def merge(result):
-    """
-    Uses NCBI Taxonomy XML response to decide to which higher-level
-    taxonomic group a taxon belongs.
-    """
-    
-    taxa = [ tax.text for tax in result.findall('.//TaxId') ]
-    if '89593' in taxa: # Craniata
-        if '7898' in taxa or '7894' in taxa or '7878' in taxa: # Fishes
-            return 'Fish'
-        elif '8292' in taxa: # Amphibeans
-            return 'Amphibean'
-        elif '40674' in taxa: # Mammals
-            if '9681' in taxa: # Cats
-                return 'Cat'
-            elif '10066' in taxa: # Mice & rats
-                return 'Mouse or Rat'
-            elif '9443' in taxa: # Primates
-                if '9605' in taxa: # Human
-                    return 'Human'
-                elif '9539' in taxa: # Macaque
-                    return 'Macaque'
-                else:
-                    return 'Other Primate'
-            else: # Other mammals
-                return 'Other Mammal'
-        # Remainder
-        return 'Other Craniata'
-    else: # Not in Craniata
-        return 'Non-Craniata'
-
-# <codecell>
-
-class paper:
-    """
-    Describes a minimal PubMed entry.
-    """
-    def __init__(self, uri, abstract, journal, title):
-        self.uri = uri
-        self.abstract = abstract
-        self.journal = journal
-        self.title = title
-
-# <markdowncell>
-
-# ## General utility methods
-
-# <codecell>
+import tempfile
+from collections import Counter
+import csv
 
 def tokenize(s):
     s = s.translate(string.maketrans("",""), string.punctuation)
     return s.lower().split()
 
-# <codecell>
+
 
 def remove_stopwords(t):
     return [ word for word in t if word not in stopwords.words() and word != 'ab' ]
 
-# <codecell>
+
 
 def strip_non_ascii(string):
     ''' Returns the string without non ASCII characters'''
     stripped = (c for c in string if 0 < ord(c) < 127)
     return ''.join(stripped)
 
-# <codecell>
+
 
 def remove_integers(t):
     new_t = []
@@ -156,7 +43,7 @@ def remove_integers(t):
             new_t.append(word)
     return new_t
 
-# <codecell>
+
 
 class dictionary:
     """
@@ -180,371 +67,439 @@ class dictionary:
         if type(key) == int:
             return self.by_int[key]
 
-# <markdowncell>
 
-# ## Parse RDF
 
-# <codecell>
+class paper:
+    """
+    Describes a minimal PubMed entry.
+    """
+    def __init__(self, uri, abstract, journal, title):
+        self.uri = uri
+        self.abstract = abstract
+        self.journal = journal
+        self.title = title
 
-g = rdflib.Graph()
-for filename in os.listdir(datapath):
-    if filename.split('.')[-1] == 'rdf':
-        g.load(datapath+"/"+filename)
 
-# <markdowncell>
 
-# ### For convenience, index RDF triples.
+def to_path(uri):
+    return str(uri).replace('/', '___')
 
-# <codecell>
 
-asdict = {}    # Index by subject.
-for s,p,o in g:  # Subject, predicate, and object in RDF triple.
+
+def to_uri(path):
+    return str(path).replace('___', '/')
+
+
+def merge(result):
+    """
+    Uses NCBI Taxonomy XML response to decide to which higher-level
+    taxonomic group a taxon belongs.
+
+    Parameters
+    ----------
+    result : ET XML object
+        NCBI Taxonomy response.
+    
+    Returns
+    -------
+    str
+        Taxon category (e.g. 'Human', 'Mouse or Rat', etc).
+    """
+    
+    # All higher-level taxonomic groups to which this taxon belongs.
+    taxa = [ tax.text for tax in result.findall('.//TaxId') ]
+
+    if '33208' in taxa and '7742' not in taxa:    # Any metazoan that is not a vertebrate.
+        return 'Invertebrate'
+    if '89593' in taxa: # Craniata
+        if '7898' in taxa or '7894' in taxa or '7878' in taxa: # Fishes
+            return 'Fish'
+        elif '8782' in taxa:    # Aves
+            return 'Bird'
+        elif '1294634' in taxa or '8505' in taxa or '8509' in taxa or '8459' in taxa: # Crocodylia (in Amniota); Sphenodontia; Squamata; Testudines
+            return 'Reptile'
+        elif '8292' in taxa: # Amphibeans
+            return 'Amphibean'
+        elif '40674' in taxa: # Mammals
+            if '9681' in taxa: # Cats
+                return 'Cat'
+            elif '10066' in taxa: # Mice & rats
+                return 'Mouse or Rat'
+            elif '9443' in taxa: # Primates
+                if '9605' in taxa: # Human
+                    return 'Human'
+                elif '9539' in taxa: # Macaque
+                    return 'Macaque'
+                else:
+                    return 'Other Primate'
+            else: # Other mammals
+                return 'Other Mammal'
+        # Remainder
+        return 'Other Craniate'
+    else: # Not in Craniata
+        return 'Non-Craniate'
+
+
+
+def classify(taxon):
+    """
+    Yields the higher-level taxonomic group to which taxon belongs.
+
+    Retrieves data for taxon from NCBI Taxonomy, then passes the result
+    to merge() to classify. Uses classified (dict) to cache results.
+
+    Parameters
+    ----------
+    taxon : str
+        NCBI Taxonomy ID.
+
+    Returns
+    -------
+    merged : str
+        Taxon category (e.g. 'Human', 'Mouse or Rat', etc).
+    """
     try:
-        asdict[s][p] = o
+        return classified[taxon]
     except KeyError:
-        asdict[s] = {}
-        asdict[s][p] = o
-
-# <markdowncell>
-
-# ### Generate a list of papers (see class `paper`, above)
-
-# <codecell>
-
-aslist = []
-for key, value in asdict.iteritems():
-    type_key = rdflib.term.URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
-    article_key = rdflib.term.URIRef(u'http://purl.org/net/biblio#Article')
-    if value[type_key] == article_key:
-        try:
-            p = paper(key, value[rdflib.term.URIRef(u'http://purl.org/dc/terms/abstract')], value[rdflib.term.URIRef(u'http://purl.org/dc/terms/isPartOf')], value[rdflib.term.URIRef(u'http://purl.org/dc/elements/1.1/title')])
-            aslist.append(p)
-        except KeyError:
-            pass
-
-# <codecell>
-
-len(aslist) # number of abstracts
-
-# <markdowncell>
-
-# ## Generate a complete vocabulary for the set of `paper` abstracts
-# * Remove all integers
-# * Remove stopwords (NLTK stopwords)
-# * Calculate overall term frequencies ( `termcounts` )
-# * Index the vocabulary ( `mo_dict` )
-
-# <codecell>
-
-vocabulary = set([])
-for p in aslist:
-    s = str(strip_non_ascii(p.abstract))
-    words = set(tokenize(s))
-    vocabulary = vocabulary | words
-
-# <codecell>
-
-vocabulary = remove_integers(list(vocabulary))
-
-# <codecell>
-
-vocabulary = set(vocabulary) - set([word for word in stopwords.words()])
-
-# <codecell>
-
-len(vocabulary)
-
-# <codecell>
-
-termcounts = {}
-for p in aslist:
-    for term in tokenize(str(strip_non_ascii(p.abstract))):
-        try:
-            termcounts[term] += 1
-        except KeyError:
-            termcounts[term] = 1
-
-# <codecell>
-
-mo_dict = dictionary()
-i = 0
-for word in list(vocabulary):
-    mo_dict[word] = i
-    i += 1
-
-# <markdowncell>
-
-# ## First attempt: dictionary look-up for each term, using NCBI Taxonomy (slow)
-
-# <codecell>
-
-species = []
-for word in list(vocabulary):
-    found = False
-    response = urllib2.urlopen(taxonomy_api + "&term=" + word).read()
-    xml = ET.fromstring(response)
-    for e in xml:
-        if e.tag == 'Count':
-            if int(e.text) > 0:
-                found = True
-                name = word
-        if e.tag == 'IdList' and len(e) > 0:
-            ident = e[0].text
-    if found:
-        response = urllib2.urlopen(taxonomy_api_get + "&id=" + ident).read()
+        response = urllib2.urlopen(taxonomy_api_get + "&id=" + taxon).read()
         xml = ET.fromstring(response)
-        for e in xml[0]:
-            if e.tag == 'Rank':
-                rank = e.text
-        species.append( (name, rank, ident) )
+        classified[taxon] = merge(xml)
+        return merged
 
-# <codecell>
 
-species_set = set([ s for s,r,i in species ])
 
-# <codecell>
+def find_names_batch(papers, linnaeus_path="/Applications/linnaeus/bin/linnaeus-2.0.jar", outpath='./'):
+    """
+    Named Entity Recognition step.
 
-counts = {}
-for org,rank,ident in species:
-    counts[org] = 0
-    for p in aslist:
-        if org in p.abstract:
-            counts[org] += 1
+    Generates a temporary directory containing one text file per paper (title+abstract),
+    and throws LINNAEUS at it.
 
-# <codecell>
+    Parameters
+    ----------
+    papers : list
+        A list of :class:`paper` objects.
+    linnaeus_path : str
+        Path to LINNAEUS .jar file.
+    outpath : str
+        Target directory for NER results.
 
-fig = plt.figure(figsize(40, 10))
-ax = fig.add_subplot(1, 1, 1)
+    Returns
+    -------
+    resultspath : str
+        Path to CSV-formated NER results file.
+    """
+    temp = tempfile.mkdtemp()
+    for paper in papers:
+        filepath = '{0}/{1}.txt'.format(temp, to_path(paper.uri))
+        with open(filepath, 'w') as f:
+            f.write(str(strip_non_ascii(paper.title)) + "\n")
+            f.write(str(strip_non_ascii(paper.abstract)) + "\n")
 
-names = [ k for k,v in counts.iteritems() if v > 10 ]
-values = [ v/float(len(aslist)) for v in counts.values() if v > 10 ]
-N = len(names)
-ind = range(N)
-ax.bar(ind, values, align='center')
-ax.set_xticks(ind)
-ax.set_xticklabels(names)
-fig.autofmt_xdate()
-plt.show()
+    resultspath = '{0}/orgnames.csv'.format(outpath)    # CSV results will go here.
+    
+    # Call LINAEUS.
+    subprocess.call(['java', '-jar', linnaeus_path, '--textDir', temp, '--out', resultspath ])
 
-# <markdowncell>
+    del temp    # Cleanup.
+    
+    return resultspath
 
-# ## Second attempt: LINNAEUS NER & merging via NCBI Taxonomy
 
-# <codecell>
 
-paper_orgs = {}
-journal_orgs = {}
-for p in aslist:
-    r = find_names(p)
-    paper_orgs[p.uri] = r
-    try:
-        journal_orgs[p.journal]
-    except KeyError:
-        journal_orgs[p.journal] = {}
-    for i in r:
+def handle_result_taxon(result):
+    """
+    Parse the taxon ID porition of LINNAEUS NER result.
+
+    If multiple possible taxa are suggested, chooses the one with the greater
+    confidence level.
+
+    Parameters
+    ----------
+    result : list
+        A CSV-parsed row from the LINNAEUS NER results file.
+
+    Returns
+    -------
+    str
+        NCBI Taxonomy ID for NER-matched taxon.
+    """
+    taxa = [ r.split(':')[-1] for r in result[0].split('|') ]
+    if len(taxa) > 1:   
+        confidence = []
+        ids = []        
+        for t in taxa:
+            t_c = t.split('?')
+            confidence.append(t_c[1])
+            ids.append(t_c[0])
+    
+        return ids[confidence.index(max(confidence))]
+    else:
+        return taxa[0].split('?')[0]
+
+
+
+def handle_result(result):
+    """
+    Assigns taxon matches from NER to each respective paper.
+
+    Parameters
+    ----------
+    result : list
+        A CSV-parsed row from the LINNAEUS NER results file.        
+    """    
+    taxon = handle_result_taxon(result)
+    uri = rdflib.term.URIRef(to_uri(result[1]))
+    orgs_in_paper[uri].append(taxon)
+
+
+
+def handle_paper_taxa(uri):
+    """
+    Applies logic for assigning taxon-group hits to journals.
+
+    Humans are treated slightly differently than the rest. To accrue a hit
+    for 'Human', it must be the only hit for that paper, or there must have
+    been at least two hits for that paper.
+
+    Parameters
+    ----------
+    uri : str
+        URI belonging to a :class:`.paper`.
+
+    Returns
+    -------
+    to_increment : dict
+        Keys are taxon-groups to increment for corresponding journal,
+        values are the amount to increment each taxon-group.
+    """
+    to_increment = {}
+    taxa = taxa_in_paper[uri]
+    taxon_hits = taxa_hits_in_paper[uri]
+    
+    for taxon, count in taxa.iteritems():
+        if taxon == 'Human':
+            if len(taxa) == 1 or taxon_hits['Human'] > 1:
+                to_increment['Human'] = 1
+        else:
+            to_increment[taxon] = count
+    return to_increment
+    
+if __name__ == '__main__':
+
+
+    orgpath = '/Users/erickpeirson/Model-Organisms-in-Neuroscience/data'
+
+
+
+    datapath = '/Users/erickpeirson/Model-Organisms-in-Neuroscience/data/RDF'
+
+
+
+    taxonomy_api = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=taxonomy"
+    taxonomy_api_get = "http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy"
+
+
+    # ## Load Data
+
+
+
+    g = rdflib.Graph()
+    for filename in os.listdir(datapath):
+        if filename.split('.')[-1] == 'rdf':
+            g.load(datapath+"/"+filename)
+
+
+    # ### `asdict`: Index by subject
+
+
+
+    asdict = {}    # Index by subject.
+    for s,p,o in g:  # Subject, predicate, and object in RDF triple.
         try:
-            journal_orgs[p.journal][i] += 1
+            asdict[s][p] = o
         except KeyError:
-            journal_orgs[p.journal][i] = 1
+            asdict[s] = {}
+            asdict[s][p] = o
 
-# <codecell>
 
-by_journal = {}
-for uri, values in journal_orgs.iteritems():
-    rels = { p:v for p,v in g[uri] }
-    title = str(rels[rdflib.term.URIRef(u'http://purl.org/dc/elements/1.1/title')])
-    try:
-        by_journal[title]
-    except KeyError:
-        by_journal[title] = {}
-    for k,v in values.iteritems():
-        try:
-            by_journal[title][k] += v
-        except KeyError:
-            by_journal[title][k] = v
+    # ### `aslist`: Generate a list of `paper`s
 
-# <codecell>
 
-overall_taxa = {}
-for paper,orgs in paper_orgs.iteritems():
-    for org in orgs:
-        taxon = classify(org)
-        try:
-            overall_taxa[taxon] += 1
-        except KeyError:
-            overall_taxa[taxon] = 1
 
-# <codecell>
+    aslist = []
+    for key, value in asdict.iteritems():
+        type_key = rdflib.term.URIRef(u'http://www.w3.org/1999/02/22-rdf-syntax-ns#type')
+        article_key = rdflib.term.URIRef(u'http://purl.org/net/biblio#Article')
+        if value[type_key] == article_key:
+            try:
+                p = paper(key, value[rdflib.term.URIRef(u'http://purl.org/dc/terms/abstract')], value[rdflib.term.URIRef(u'http://purl.org/dc/terms/isPartOf')], value[rdflib.term.URIRef(u'http://purl.org/dc/elements/1.1/title')])
+                aslist.append(p)
+            except KeyError:
+                pass
 
-journal_taxa = {}
-for journal, orgs in by_journal.iteritems():
-    journal_taxa[journal] = {}
-    N = np.sum([c for c in orgs.values()])
-    for org,count in orgs.iteritems():
-        taxon = classify(org)
-        try:
-            journal_taxa[journal][taxon] += float(count)/N
-        except KeyError:
-            journal_taxa[journal][taxon] = float(count)/N
 
-# <codecell>
 
-for journal, values in journal_taxa.iteritems():
-    font = { 'size'   : 16}
-    matplotlib.rc('font', **font)    
-    
-    fig = plt.figure(figsize=(20,10), dpi=300)
-    ind = np.array(range(len(values)))
-    plt.bar(ind, np.array(values.values())*100)
-    plt.title(journal)
-    ax = fig.add_subplot(1, 1, 1)
-    ax.set_xticks(ind+0.5)
-    ax.set_xticklabels(values.keys())
-    plt.ylabel("Percent of Papers")
-    fig.autofmt_xdate(rotation=90)
-    plt.savefig("/Users/erickpeirson/Model Organisms in Neuroscience/figures/"+journal.lower().replace(' ','')+".png")
+    len(aslist) # number of abstracts
 
-# <codecell>
 
-fig = plt.figure(figsize=(20,10), dpi=300)
-ind = np.array(range(len(overall_taxa)))
-plt.bar(ind, overall_taxa.values())
-ax = fig.add_subplot(1, 1, 1)
-ax.set_xticks(ind+0.5)
-ax.set_xticklabels(overall_taxa.keys())
-fig.autofmt_xdate(rotation=90)
-plt.title("All Journals")
-plt.ylabel("Number of Papers")
-plt.savefig("/Users/erickpeirson/Model Organisms in Neuroscience/figures/alljournals.png")
+    # ## LINNAEUS NER & classification via NCBI Taxonomy
+    # 
+    # ### Named Entity Recognition
+    # * [LINNAEUS](http://linnaeus.sourceforge.net/)
+    # 
+    # ### Classification logic:
+    # * For each paper in a journal:
+    #     * For each unique taxon in that paper,
+    #         * If the taxon group is human:
+    #             * If human is the only taxon group in that paper, or if the number of hits for human is greater than 1:
+    #                 * Increment the human group
+    #         * Otherwise,
+    #             * Increment the taxon group
 
-# <markdowncell>
 
-# ### Persistency
+    # ### Globals
 
-# <codecell>
 
-with open(orgpath+"/organisms.txt", "w") as f:
-    for n,r,i in species:
-        f.write(n + "\t" + r + "\t" + i + "\n")
 
-# <codecell>
+    classified = {}    # For caching classification results.
 
-with open(orgpath+"/organisms.txt", "r") as f:
-    species = [ tuple(line.strip('\n').split('\t')) for line in f.readlines() ]
 
-# <codecell>
 
-with open("/Users/erickpeirson/Model Organisms in Neuroscience/data/paper_orgs.pickle", "w") as f:
-    pickle.dump(paper_orgs, f)
-with open("/Users/erickpeirson/Model Organisms in Neuroscience/data/journal_orgs.pickle", "w") as f:
-    pickle.dump(journal_orgs, f)
-with open("/Users/erickpeirson/Model Organisms in Neuroscience/data/by_journal.pickle", "w") as f:
-    pickle.dump(by_journal, f)
-with open("/Users/erickpeirson/Model Organisms in Neuroscience/data/overall_taxa.pickle", "w") as f:
-    pickle.dump(overall_taxa, f)
-with open("/Users/erickpeirson/Model Organisms in Neuroscience/data/journal_taxa.pickle", "w") as f:
-    pickle.dump(journal_taxa, f)
+    orgs_in_paper = { p.uri:[] for p in aslist }
 
-# <markdowncell>
 
-# ## Modeling (ignore for now)
 
-# <codecell>
+    taxa_in_paper = { p.uri:Counter() for p in aslist }
+    taxa_hits_in_paper = { p.uri:Counter() for p in aslist }
 
-from vsm.corpus import Corpus
-from vsm.corpus.util import corpusbuilders as cb
-from vsm.model import tf, tfidf, lsa, ldagibbs, beaglecomposite, beaglecontext, beagleenvironment, beagleorder, ldacgsmulti
-from vsm.viewer import ldagibbsviewer, tfidfviewer
-from vsm.viewer import beagleviewer
-import pickle
 
-# <codecell>
 
-for i in xrange(len(aslist)):
-    aslist[i].abstract = tokenize(str(strip_non_ascii(aslist[i].abstract)))
+    taxa_in_journal = {}
 
-# <codecell>
 
-abstracts = [ tokenize(str(strip_non_ascii(p.abstract))) for p in aslist]
+    # ### Methods
 
-# <codecell>
 
-model_path = "/Users/erickpeirson/Desktop/MO"
-filename = "ACSChemicalNeuroscience"
 
-# <codecell>
 
-ec = cb.corpus_fromlist(abstracts, context_type='sentence')
-#pickle.dump(ec, open(model_path+filename+"_ec.model", "w"))
-print str(len(ec.words)) + " in unfiltered vocabulary"
 
-cc = ec.apply_stoplist(stopwords.words())
-#pickle.dump(cc, open(model_path+filename+"_cc.model", "w"))
-print str(len(cc.words)) + " after stoplist applied"
-    
-be = beagleenvironment.BeagleEnvironment(ec)
-be.train()
-#pickle.dump(be, open(model_path+filename+"_be.model", "w"))
-print "environment done"
-    
-ms = beaglecontext.BeagleContextSeq(cc, ec, be.matrix)
-ms.train()
-#pickle.dump(ms, open(model_path+filename+"_ms.model", "w"))
-print "context done"
-    
-#od = beagleorder.BeagleOrderSeq(ec, be.matrix)
-#od.train()
-#pickle.dump(od, open(model_path+filename+"_od.model", "w"))
-#print "order done"
 
-#bc = beaglecomposite.BeagleComposite(cc, ms.matrix, ec, od.matrix)
-#bc.train()
-#pickle.dump(bc, open(model_path+filename+"_bc.model", "w"))
-    
-#bv = beagleviewer.BeagleViewer(cc, bc)
-bv_x = beagleviewer.BeagleViewer(cc, ms)
-#bv_o = beagleviewer.BeagleViewer(ec, od)
+    # ### Execution
 
-# <codecell>
 
-bv_x.sim_word_word(['mice'])
 
-# <codecell>
+    resultpath = find_names_batch(aslist)    # <-- The action.
 
-print bv_x.simmat_words(['mouse', 'rat', 'human', 'alzheimers', 'schizophrenia', 'model'])
 
-# <codecell>
 
-'alzheimers' in vocabulary
+    # Read the CSV-formatted NER results file from LINNAEUS.
+    results = []
+    with open(resultpath, 'r') as f:
+        reader = csv.reader(f, delimiter='\t')
+        for row in reader:
+            results.append(row)
 
-# <codecell>
 
-bv_o.sim_word_word(['mice'])
 
-# <codecell>
+    # Assign taxon matches to papers.
+    for result in results[1:]:
+        handle_result(result)
 
-bv.sim_word_word(['mice'])
 
-# <codecell>
 
-bv_x.sim_word_word(['rabbits'])
+    # Classify taxon matches, and accrue to papers.
+    for uri,ts in orgs_in_paper.iteritems():
+        for t in ts:    # Count number of taxon-group hits in title and abstract.
+            c = classify(t)
+            taxa_hits_in_paper[uri][c] += 1
+        for t in set(ts):    # Count number of unique taxon-group hits.
+            c = classify(t)
+            taxa_in_paper[uri][c] += 1
 
-# <codecell>
 
-bv_x.sim_word_word(['monkeys'])
 
-# <codecell>
+    # Index journal names by the URIs of their papers.
+    journal = {}
+    for pap in aslist:
+        # Get object of dc.title triple for paper's journal (pap.journal is a journal URI).
+        title = str(asdict[pap.journal][rdflib.term.URIRef(u'http://purl.org/dc/elements/1.1/title')])
+        journal[pap.uri] = title.lower()
 
-bv_x.sim_word_word(['mouse'])
 
-# <codecell>
 
-l = ldacgsmulti.LdaCgsMulti(cc, 'sentence', K=20)
+    # Assign taxon-group hits to journals.
+    for pap in aslist:
+        ti = handle_paper_taxa(pap.uri)
+        jtitle = journal[pap.uri]
+        for k,v in ti.iteritems():
+            try:
+                taxa_in_journal[jtitle][k] += v
+            except KeyError:
+                taxa_in_journal[jtitle] = Counter()
+                taxa_in_journal[jtitle][k] += v
 
-# <codecell>
 
-l.train(itr=100, n_proc=8)
+    # ## Generate figures
 
-# <codecell>
 
+
+    tkeys = ['Human', 
+             'Macaque', 
+             'Other Primate',
+             'Mouse or Rat',
+             'Cat',
+             'Other Mammal',
+             'Bird',
+             'Reptile',
+             'Amphibean',
+             'Fish',
+             'Invertebrate']
+
+
+
+    plt.figure(figsize=(8,50))
+    J = len(taxa_in_journal)
+    sums = Counter()
+    for j in xrange(J):
+        key = taxa_in_journal.keys()[j]
+        counts = []
+        for t in tkeys:    # Use the same keys for all figures, so that taxon-groups are aligned.
+            try:
+                c = taxa_in_journal[key][t]
+            except KeyError:
+                c = 0
+            counts.append(c)
+            sums[t] += c
+
+        ax = plt.subplot(J, 1, j+1)    # Subplots are arranged vertically.
+        T = len(tkeys)
+
+        ax.bar(arange(T), np.array(counts)+0.1, align='center', color='green', alpha=0.8, lw=2)
+        
+        # TODO: wrap tick label text?
+        plt.xticks(arange(T))
+        ax.set_xticklabels(tkeys, rotation=35, horizontalalignment='right')
+
+        # TODO: clean this up....
+        if key == 'the neuroscientist: a review journal bringing neurobiology, neurology and psychiatry':
+            title = 'The Neuroscientist'
+        elif key == 'cerebral cortex (new york, n.y.: 1991)':
+            title = 'Cerebral Cortex'
+        elif key == 'acs chemical neuroscience':
+            title = 'ACS Chemical Neuroscience'
+        else:
+            title = key.title()
+            
+        plt.title('{0}, 2005-2010'.format(title))
+    plt.tight_layout()    # Fixes subplot spacing.
+    plt.show()
+
+
+
+    plt.figure( figsize=(10,7))
+    plt.bar(arange(len(sums)), [ sums[t] for t in tkeys ], align='center', color='green', alpha=0.8, lw=2)
+    plt.xticks(arange(len(sums)), tkeys, rotation=35, horizontalalignment='right')
+    plt.title('All Journals, 2005-2010')
+    plt.show()
 
