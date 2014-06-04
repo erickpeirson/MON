@@ -8,7 +8,18 @@ Model Organisms in Neuroscience
 
 .. autosummary::
 
-   main
+   main.paper
+   main.dictionary
+   main.find_names_batch
+   main.handle_result
+   main.handle_result_taxon
+   main.handle_paper_taxa
+   main.classify
+   main.merge
+
+
+.. automodule:: main
+    :members:
 
 
 

@@ -20,21 +20,55 @@ def tokenize(s):
     s = s.translate(string.maketrans("",""), string.punctuation)
     return s.lower().split()
 
-
-
 def remove_stopwords(t):
+    """
+    Removes words found in the NLTK ``stopwords`` corpus.
+    
+    Parameters
+    ----------
+    t : list
+        A list of strings.
+    
+    Returns
+    -------
+    list
+        A somewhat shorter list of strings.
+    """
+
     return [ word for word in t if word not in stopwords.words() and word != 'ab' ]
 
 
 
 def strip_non_ascii(string):
-    ''' Returns the string without non ASCII characters'''
+    """
+    Beligerently removes non-ASCII characters
+    
+    Parameters
+    ----------
+    string : str
+    
+    Returns
+    -------
+    stripped_string : str
+    """
+    
     stripped = (c for c in string if 0 < ord(c) < 127)
-    return ''.join(stripped)
-
-
+    stripped_string = ''.join(stripped)
+    return stripped_string
 
 def remove_integers(t):
+    """
+    Removes words that cannot be cast as integers.
+    
+    Parameters
+    ----------
+    t : list
+    
+    Returns
+    -------
+    new_t : list
+    """
+
     new_t = []
     for word in t:
         try:
@@ -67,8 +101,6 @@ class dictionary:
         if type(key) == int:
             return self.by_int[key]
 
-
-
 class paper:
     """
     Describes a minimal PubMed entry.
@@ -79,10 +111,20 @@ class paper:
         self.journal = journal
         self.title = title
 
-
-
 def to_path(uri):
-    return str(uri).replace('/', '___')
+    """
+    Converts a URI to something that can be used as a filepath.
+    
+    Parameters
+    ----------
+    uri : str
+    
+    Returns
+    -------
+    path : str
+    """
+    path =  str(uri).replace('/', '___')
+    return path
 
 
 

@@ -1,0 +1,605 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>main &mdash; Model Organisms in Neuroscience 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Model Organisms in Neuroscience 0.1 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../np-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">Model Organisms in Neuroscience 0.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for main</h1><div class="highlight"><pre>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># &lt;nbformat&gt;3.0&lt;/nbformat&gt;</span>
+
+
+
+<span class="kn">from</span> <span class="nn">nltk.corpus</span> <span class="kn">import</span> <span class="n">stopwords</span>
+<span class="kn">import</span> <span class="nn">string</span>
+<span class="kn">import</span> <span class="nn">rdflib</span>
+<span class="kn">import</span> <span class="nn">urllib2</span>
+<span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="kn">as</span> <span class="nn">ET</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+
+<span class="k">def</span> <span class="nf">tokenize</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">string</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span><span class="s">&quot;&quot;</span><span class="p">),</span> <span class="n">string</span><span class="o">.</span><span class="n">punctuation</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+
+
+<div class="viewcode-block" id="remove_stopwords"><a class="viewcode-back" href="../index.html#main.remove_stopwords">[docs]</a><span class="k">def</span> <span class="nf">remove_stopwords</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span> <span class="n">word</span> <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">t</span> <span class="k">if</span> <span class="n">word</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stopwords</span><span class="o">.</span><span class="n">words</span><span class="p">()</span> <span class="ow">and</span> <span class="n">word</span> <span class="o">!=</span> <span class="s">&#39;ab&#39;</span> <span class="p">]</span>
+
+
+</div>
+<div class="viewcode-block" id="strip_non_ascii"><a class="viewcode-back" href="../index.html#main.strip_non_ascii">[docs]</a><span class="k">def</span> <span class="nf">strip_non_ascii</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39; Returns the string without non ASCII characters&#39;&#39;&#39;</span>
+    <span class="n">stripped</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">string</span> <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">ord</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">127</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">stripped</span><span class="p">)</span>
+
+
+</div>
+<div class="viewcode-block" id="remove_integers"><a class="viewcode-back" href="../index.html#main.remove_integers">[docs]</a><span class="k">def</span> <span class="nf">remove_integers</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="n">new_t</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">t</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">new_t</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">word</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_t</span>
+
+
+</div>
+<div class="viewcode-block" id="dictionary"><a class="viewcode-back" href="../index.html#main.dictionary">[docs]</a><span class="k">class</span> <span class="nc">dictionary</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A two-way index for integer/string pairs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">by_str</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">by_int</span> <span class="o">=</span> <span class="p">{}</span>
+        
+    <span class="k">def</span> <span class="nf">__setitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">by_str</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">by_int</span><span class="p">[</span><span class="n">value</span><span class="p">]</span> <span class="o">=</span> <span class="n">key</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">by_int</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">by_str</span><span class="p">[</span><span class="n">value</span><span class="p">]</span> <span class="o">=</span> <span class="n">key</span>
+    
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="nb">str</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">by_str</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">by_int</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+
+</div>
+<div class="viewcode-block" id="paper"><a class="viewcode-back" href="../index.html#main.paper">[docs]</a><span class="k">class</span> <span class="nc">paper</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Describes a minimal PubMed entry.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uri</span><span class="p">,</span> <span class="n">abstract</span><span class="p">,</span> <span class="n">journal</span><span class="p">,</span> <span class="n">title</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uri</span> <span class="o">=</span> <span class="n">uri</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span> <span class="o">=</span> <span class="n">abstract</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">journal</span> <span class="o">=</span> <span class="n">journal</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+
+
+</div>
+<div class="viewcode-block" id="to_path"><a class="viewcode-back" href="../index.html#main.to_path">[docs]</a><span class="k">def</span> <span class="nf">to_path</span><span class="p">(</span><span class="n">uri</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">uri</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">,</span> <span class="s">&#39;___&#39;</span><span class="p">)</span>
+
+
+</div>
+<span class="k">def</span> <span class="nf">to_uri</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;___&#39;</span><span class="p">,</span> <span class="s">&#39;/&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="merge"><a class="viewcode-back" href="../index.html#main.merge">[docs]</a><span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Uses NCBI Taxonomy XML response to decide to which higher-level</span>
+<span class="sd">    taxonomic group a taxon belongs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    result : ET XML object</span>
+<span class="sd">        NCBI Taxonomy response.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Taxon category (e.g. &#39;Human&#39;, &#39;Mouse or Rat&#39;, etc).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c"># All higher-level taxonomic groups to which this taxon belongs.</span>
+    <span class="n">taxa</span> <span class="o">=</span> <span class="p">[</span> <span class="n">tax</span><span class="o">.</span><span class="n">text</span> <span class="k">for</span> <span class="n">tax</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s">&#39;.//TaxId&#39;</span><span class="p">)</span> <span class="p">]</span>
+
+    <span class="k">if</span> <span class="s">&#39;33208&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">and</span> <span class="s">&#39;7742&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span>    <span class="c"># Any metazoan that is not a vertebrate.</span>
+        <span class="k">return</span> <span class="s">&#39;Invertebrate&#39;</span>
+    <span class="k">if</span> <span class="s">&#39;89593&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Craniata</span>
+        <span class="k">if</span> <span class="s">&#39;7898&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">or</span> <span class="s">&#39;7894&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">or</span> <span class="s">&#39;7878&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Fishes</span>
+            <span class="k">return</span> <span class="s">&#39;Fish&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;8782&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span>    <span class="c"># Aves</span>
+            <span class="k">return</span> <span class="s">&#39;Bird&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;1294634&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">or</span> <span class="s">&#39;8505&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">or</span> <span class="s">&#39;8509&#39;</span> <span class="ow">in</span> <span class="n">taxa</span> <span class="ow">or</span> <span class="s">&#39;8459&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Crocodylia (in Amniota); Sphenodontia; Squamata; Testudines</span>
+            <span class="k">return</span> <span class="s">&#39;Reptile&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;8292&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Amphibeans</span>
+            <span class="k">return</span> <span class="s">&#39;Amphibean&#39;</span>
+        <span class="k">elif</span> <span class="s">&#39;40674&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Mammals</span>
+            <span class="k">if</span> <span class="s">&#39;9681&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Cats</span>
+                <span class="k">return</span> <span class="s">&#39;Cat&#39;</span>
+            <span class="k">elif</span> <span class="s">&#39;10066&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Mice &amp; rats</span>
+                <span class="k">return</span> <span class="s">&#39;Mouse or Rat&#39;</span>
+            <span class="k">elif</span> <span class="s">&#39;9443&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Primates</span>
+                <span class="k">if</span> <span class="s">&#39;9605&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Human</span>
+                    <span class="k">return</span> <span class="s">&#39;Human&#39;</span>
+                <span class="k">elif</span> <span class="s">&#39;9539&#39;</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span> <span class="c"># Macaque</span>
+                    <span class="k">return</span> <span class="s">&#39;Macaque&#39;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="s">&#39;Other Primate&#39;</span>
+            <span class="k">else</span><span class="p">:</span> <span class="c"># Other mammals</span>
+                <span class="k">return</span> <span class="s">&#39;Other Mammal&#39;</span>
+        <span class="c"># Remainder</span>
+        <span class="k">return</span> <span class="s">&#39;Other Craniate&#39;</span>
+    <span class="k">else</span><span class="p">:</span> <span class="c"># Not in Craniata</span>
+        <span class="k">return</span> <span class="s">&#39;Non-Craniate&#39;</span>
+
+
+</div>
+<div class="viewcode-block" id="classify"><a class="viewcode-back" href="../index.html#main.classify">[docs]</a><span class="k">def</span> <span class="nf">classify</span><span class="p">(</span><span class="n">taxon</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Yields the higher-level taxonomic group to which taxon belongs.</span>
+
+<span class="sd">    Retrieves data for taxon from NCBI Taxonomy, then passes the result</span>
+<span class="sd">    to merge() to classify. Uses classified (dict) to cache results.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    taxon : str</span>
+<span class="sd">        NCBI Taxonomy ID.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    merged : str</span>
+<span class="sd">        Taxon category (e.g. &#39;Human&#39;, &#39;Mouse or Rat&#39;, etc).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">classified</span><span class="p">[</span><span class="n">taxon</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">urllib2</span><span class="o">.</span><span class="n">urlopen</span><span class="p">(</span><span class="n">taxonomy_api_get</span> <span class="o">+</span> <span class="s">&quot;&amp;id=&quot;</span> <span class="o">+</span> <span class="n">taxon</span><span class="p">)</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+        <span class="n">xml</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">fromstring</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+        <span class="n">classified</span><span class="p">[</span><span class="n">taxon</span><span class="p">]</span> <span class="o">=</span> <span class="n">merge</span><span class="p">(</span><span class="n">xml</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">merged</span>
+
+
+</div>
+<div class="viewcode-block" id="find_names_batch"><a class="viewcode-back" href="../index.html#main.find_names_batch">[docs]</a><span class="k">def</span> <span class="nf">find_names_batch</span><span class="p">(</span><span class="n">papers</span><span class="p">,</span> <span class="n">linnaeus_path</span><span class="o">=</span><span class="s">&quot;/Applications/linnaeus/bin/linnaeus-2.0.jar&quot;</span><span class="p">,</span> <span class="n">outpath</span><span class="o">=</span><span class="s">&#39;./&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Named Entity Recognition step.</span>
+
+<span class="sd">    Generates a temporary directory containing one text file per paper (title+abstract),</span>
+<span class="sd">    and throws LINNAEUS at it.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    papers : list</span>
+<span class="sd">        A list of :class:`paper` objects.</span>
+<span class="sd">    linnaeus_path : str</span>
+<span class="sd">        Path to LINNAEUS .jar file.</span>
+<span class="sd">    outpath : str</span>
+<span class="sd">        Target directory for NER results.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    resultspath : str</span>
+<span class="sd">        Path to CSV-formated NER results file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">temp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkdtemp</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">paper</span> <span class="ow">in</span> <span class="n">papers</span><span class="p">:</span>
+        <span class="n">filepath</span> <span class="o">=</span> <span class="s">&#39;{0}/{1}.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">temp</span><span class="p">,</span> <span class="n">to_path</span><span class="p">(</span><span class="n">paper</span><span class="o">.</span><span class="n">uri</span><span class="p">))</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">strip_non_ascii</span><span class="p">(</span><span class="n">paper</span><span class="o">.</span><span class="n">title</span><span class="p">))</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">strip_non_ascii</span><span class="p">(</span><span class="n">paper</span><span class="o">.</span><span class="n">abstract</span><span class="p">))</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+
+    <span class="n">resultspath</span> <span class="o">=</span> <span class="s">&#39;{0}/orgnames.csv&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">outpath</span><span class="p">)</span>    <span class="c"># CSV results will go here.</span>
+    
+    <span class="c"># Call LINAEUS.</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">([</span><span class="s">&#39;java&#39;</span><span class="p">,</span> <span class="s">&#39;-jar&#39;</span><span class="p">,</span> <span class="n">linnaeus_path</span><span class="p">,</span> <span class="s">&#39;--textDir&#39;</span><span class="p">,</span> <span class="n">temp</span><span class="p">,</span> <span class="s">&#39;--out&#39;</span><span class="p">,</span> <span class="n">resultspath</span> <span class="p">])</span>
+
+    <span class="k">del</span> <span class="n">temp</span>    <span class="c"># Cleanup.</span>
+    
+    <span class="k">return</span> <span class="n">resultspath</span>
+
+
+</div>
+<div class="viewcode-block" id="handle_result_taxon"><a class="viewcode-back" href="../index.html#main.handle_result_taxon">[docs]</a><span class="k">def</span> <span class="nf">handle_result_taxon</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parse the taxon ID porition of LINNAEUS NER result.</span>
+
+<span class="sd">    If multiple possible taxa are suggested, chooses the one with the greater</span>
+<span class="sd">    confidence level.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    result : list</span>
+<span class="sd">        A CSV-parsed row from the LINNAEUS NER results file.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        NCBI Taxonomy ID for NER-matched taxon.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">taxa</span> <span class="o">=</span> <span class="p">[</span> <span class="n">r</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;|&#39;</span><span class="p">)</span> <span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">taxa</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>   
+        <span class="n">confidence</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="p">[]</span>        
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">taxa</span><span class="p">:</span>
+            <span class="n">t_c</span> <span class="o">=</span> <span class="n">t</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;?&#39;</span><span class="p">)</span>
+            <span class="n">confidence</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t_c</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t_c</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    
+        <span class="k">return</span> <span class="n">ids</span><span class="p">[</span><span class="n">confidence</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">confidence</span><span class="p">))]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">taxa</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;?&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+
+</div>
+<div class="viewcode-block" id="handle_result"><a class="viewcode-back" href="../index.html#main.handle_result">[docs]</a><span class="k">def</span> <span class="nf">handle_result</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assigns taxon matches from NER to each respective paper.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    result : list</span>
+<span class="sd">        A CSV-parsed row from the LINNAEUS NER results file.        </span>
+<span class="sd">    &quot;&quot;&quot;</span>    
+    <span class="n">taxon</span> <span class="o">=</span> <span class="n">handle_result_taxon</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+    <span class="n">uri</span> <span class="o">=</span> <span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="n">to_uri</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">orgs_in_paper</span><span class="p">[</span><span class="n">uri</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">taxon</span><span class="p">)</span>
+
+
+</div>
+<div class="viewcode-block" id="handle_paper_taxa"><a class="viewcode-back" href="../index.html#main.handle_paper_taxa">[docs]</a><span class="k">def</span> <span class="nf">handle_paper_taxa</span><span class="p">(</span><span class="n">uri</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Applies logic for assigning taxon-group hits to journals.</span>
+
+<span class="sd">    Humans are treated slightly differently than the rest. To accrue a hit</span>
+<span class="sd">    for &#39;Human&#39;, it must be the only hit for that paper, or there must have</span>
+<span class="sd">    been at least two hits for that paper.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    uri : str</span>
+<span class="sd">        URI belonging to a :class:`.paper`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    to_increment : dict</span>
+<span class="sd">        Keys are taxon-groups to increment for corresponding journal,</span>
+<span class="sd">        values are the amount to increment each taxon-group.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">to_increment</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">taxa</span> <span class="o">=</span> <span class="n">taxa_in_paper</span><span class="p">[</span><span class="n">uri</span><span class="p">]</span>
+    <span class="n">taxon_hits</span> <span class="o">=</span> <span class="n">taxa_hits_in_paper</span><span class="p">[</span><span class="n">uri</span><span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">taxon</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">taxa</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">taxon</span> <span class="o">==</span> <span class="s">&#39;Human&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">taxa</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">taxon_hits</span><span class="p">[</span><span class="s">&#39;Human&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">to_increment</span><span class="p">[</span><span class="s">&#39;Human&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">to_increment</span><span class="p">[</span><span class="n">taxon</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span>
+    <span class="k">return</span> <span class="n">to_increment</span>
+    </div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+
+
+    <span class="n">orgpath</span> <span class="o">=</span> <span class="s">&#39;/Users/erickpeirson/Model-Organisms-in-Neuroscience/data&#39;</span>
+
+
+
+    <span class="n">datapath</span> <span class="o">=</span> <span class="s">&#39;/Users/erickpeirson/Model-Organisms-in-Neuroscience/data/RDF&#39;</span>
+
+
+
+    <span class="n">taxonomy_api</span> <span class="o">=</span> <span class="s">&quot;http://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=taxonomy&quot;</span>
+    <span class="n">taxonomy_api_get</span> <span class="o">=</span> <span class="s">&quot;http://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=taxonomy&quot;</span>
+
+
+    <span class="c"># ## Load Data</span>
+
+
+
+    <span class="n">g</span> <span class="o">=</span> <span class="n">rdflib</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">datapath</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="s">&#39;rdf&#39;</span><span class="p">:</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">datapath</span><span class="o">+</span><span class="s">&quot;/&quot;</span><span class="o">+</span><span class="n">filename</span><span class="p">)</span>
+
+
+    <span class="c"># ### `asdict`: Index by subject</span>
+
+
+
+    <span class="n">asdict</span> <span class="o">=</span> <span class="p">{}</span>    <span class="c"># Index by subject.</span>
+    <span class="k">for</span> <span class="n">s</span><span class="p">,</span><span class="n">p</span><span class="p">,</span><span class="n">o</span> <span class="ow">in</span> <span class="n">g</span><span class="p">:</span>  <span class="c"># Subject, predicate, and object in RDF triple.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">asdict</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">o</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">asdict</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">asdict</span><span class="p">[</span><span class="n">s</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">o</span>
+
+
+    <span class="c"># ### `aslist`: Generate a list of `paper`s</span>
+
+
+
+    <span class="n">aslist</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">asdict</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="n">type_key</span> <span class="o">=</span> <span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://www.w3.org/1999/02/22-rdf-syntax-ns#type&#39;</span><span class="p">)</span>
+        <span class="n">article_key</span> <span class="o">=</span> <span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://purl.org/net/biblio#Article&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">value</span><span class="p">[</span><span class="n">type_key</span><span class="p">]</span> <span class="o">==</span> <span class="n">article_key</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">paper</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://purl.org/dc/terms/abstract&#39;</span><span class="p">)],</span> <span class="n">value</span><span class="p">[</span><span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://purl.org/dc/terms/isPartOf&#39;</span><span class="p">)],</span> <span class="n">value</span><span class="p">[</span><span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://purl.org/dc/elements/1.1/title&#39;</span><span class="p">)])</span>
+                <span class="n">aslist</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+
+
+    <span class="nb">len</span><span class="p">(</span><span class="n">aslist</span><span class="p">)</span> <span class="c"># number of abstracts</span>
+
+
+    <span class="c"># ## LINNAEUS NER &amp; classification via NCBI Taxonomy</span>
+    <span class="c"># </span>
+    <span class="c"># ### Named Entity Recognition</span>
+    <span class="c"># * [LINNAEUS](http://linnaeus.sourceforge.net/)</span>
+    <span class="c"># </span>
+    <span class="c"># ### Classification logic:</span>
+    <span class="c"># * For each paper in a journal:</span>
+    <span class="c">#     * For each unique taxon in that paper,</span>
+    <span class="c">#         * If the taxon group is human:</span>
+    <span class="c">#             * If human is the only taxon group in that paper, or if the number of hits for human is greater than 1:</span>
+    <span class="c">#                 * Increment the human group</span>
+    <span class="c">#         * Otherwise,</span>
+    <span class="c">#             * Increment the taxon group</span>
+
+
+    <span class="c"># ### Globals</span>
+
+
+
+    <span class="n">classified</span> <span class="o">=</span> <span class="p">{}</span>    <span class="c"># For caching classification results.</span>
+
+
+
+    <span class="n">orgs_in_paper</span> <span class="o">=</span> <span class="p">{</span> <span class="n">p</span><span class="o">.</span><span class="n">uri</span><span class="p">:[]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">aslist</span> <span class="p">}</span>
+
+
+
+    <span class="n">taxa_in_paper</span> <span class="o">=</span> <span class="p">{</span> <span class="n">p</span><span class="o">.</span><span class="n">uri</span><span class="p">:</span><span class="n">Counter</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">aslist</span> <span class="p">}</span>
+    <span class="n">taxa_hits_in_paper</span> <span class="o">=</span> <span class="p">{</span> <span class="n">p</span><span class="o">.</span><span class="n">uri</span><span class="p">:</span><span class="n">Counter</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">aslist</span> <span class="p">}</span>
+
+
+
+    <span class="n">taxa_in_journal</span> <span class="o">=</span> <span class="p">{}</span>
+
+
+    <span class="c"># ### Methods</span>
+
+
+
+
+
+
+    <span class="c"># ### Execution</span>
+
+
+
+    <span class="n">resultpath</span> <span class="o">=</span> <span class="n">find_names_batch</span><span class="p">(</span><span class="n">aslist</span><span class="p">)</span>    <span class="c"># &lt;-- The action.</span>
+
+
+
+    <span class="c"># Read the CSV-formatted NER results file from LINNAEUS.</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">resultpath</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">reader</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">reader</span><span class="p">:</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+
+
+    <span class="c"># Assign taxon matches to papers.</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="n">handle_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+
+
+    <span class="c"># Classify taxon matches, and accrue to papers.</span>
+    <span class="k">for</span> <span class="n">uri</span><span class="p">,</span><span class="n">ts</span> <span class="ow">in</span> <span class="n">orgs_in_paper</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ts</span><span class="p">:</span>    <span class="c"># Count number of taxon-group hits in title and abstract.</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">classify</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">taxa_hits_in_paper</span><span class="p">[</span><span class="n">uri</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">ts</span><span class="p">):</span>    <span class="c"># Count number of unique taxon-group hits.</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">classify</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+            <span class="n">taxa_in_paper</span><span class="p">[</span><span class="n">uri</span><span class="p">][</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+
+
+    <span class="c"># Index journal names by the URIs of their papers.</span>
+    <span class="n">journal</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">pap</span> <span class="ow">in</span> <span class="n">aslist</span><span class="p">:</span>
+        <span class="c"># Get object of dc.title triple for paper&#39;s journal (pap.journal is a journal URI).</span>
+        <span class="n">title</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">asdict</span><span class="p">[</span><span class="n">pap</span><span class="o">.</span><span class="n">journal</span><span class="p">][</span><span class="n">rdflib</span><span class="o">.</span><span class="n">term</span><span class="o">.</span><span class="n">URIRef</span><span class="p">(</span><span class="s">u&#39;http://purl.org/dc/elements/1.1/title&#39;</span><span class="p">)])</span>
+        <span class="n">journal</span><span class="p">[</span><span class="n">pap</span><span class="o">.</span><span class="n">uri</span><span class="p">]</span> <span class="o">=</span> <span class="n">title</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+
+
+    <span class="c"># Assign taxon-group hits to journals.</span>
+    <span class="k">for</span> <span class="n">pap</span> <span class="ow">in</span> <span class="n">aslist</span><span class="p">:</span>
+        <span class="n">ti</span> <span class="o">=</span> <span class="n">handle_paper_taxa</span><span class="p">(</span><span class="n">pap</span><span class="o">.</span><span class="n">uri</span><span class="p">)</span>
+        <span class="n">jtitle</span> <span class="o">=</span> <span class="n">journal</span><span class="p">[</span><span class="n">pap</span><span class="o">.</span><span class="n">uri</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="n">ti</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">taxa_in_journal</span><span class="p">[</span><span class="n">jtitle</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">v</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">taxa_in_journal</span><span class="p">[</span><span class="n">jtitle</span><span class="p">]</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+                <span class="n">taxa_in_journal</span><span class="p">[</span><span class="n">jtitle</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="n">v</span>
+
+
+    <span class="c"># ## Generate figures</span>
+
+
+
+    <span class="n">tkeys</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;Human&#39;</span><span class="p">,</span> 
+             <span class="s">&#39;Macaque&#39;</span><span class="p">,</span> 
+             <span class="s">&#39;Other Primate&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Mouse or Rat&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Cat&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Other Mammal&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Bird&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Reptile&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Amphibean&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Fish&#39;</span><span class="p">,</span>
+             <span class="s">&#39;Invertebrate&#39;</span><span class="p">]</span>
+
+
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">50</span><span class="p">))</span>
+    <span class="n">J</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">taxa_in_journal</span><span class="p">)</span>
+    <span class="n">sums</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">xrange</span><span class="p">(</span><span class="n">J</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">taxa_in_journal</span><span class="o">.</span><span class="n">keys</span><span class="p">()[</span><span class="n">j</span><span class="p">]</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tkeys</span><span class="p">:</span>    <span class="c"># Use the same keys for all figures, so that taxon-groups are aligned.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">taxa_in_journal</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">t</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">counts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">sums</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">+=</span> <span class="n">c</span>
+
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">J</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span>    <span class="c"># Subplots are arranged vertically.</span>
+        <span class="n">T</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tkeys</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">arange</span><span class="p">(</span><span class="n">T</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span><span class="o">+</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">align</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        
+        <span class="c"># TODO: wrap tick label text?</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">arange</span><span class="p">(</span><span class="n">T</span><span class="p">))</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">(</span><span class="n">tkeys</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">35</span><span class="p">,</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s">&#39;right&#39;</span><span class="p">)</span>
+
+        <span class="c"># TODO: clean this up....</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s">&#39;the neuroscientist: a review journal bringing neurobiology, neurology and psychiatry&#39;</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="s">&#39;The Neuroscientist&#39;</span>
+        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s">&#39;cerebral cortex (new york, n.y.: 1991)&#39;</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="s">&#39;Cerebral Cortex&#39;</span>
+        <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s">&#39;acs chemical neuroscience&#39;</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="s">&#39;ACS Chemical Neuroscience&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">title</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+            
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s">&#39;{0}, 2005-2010&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">title</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>    <span class="c"># Fixes subplot spacing.</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+
+
+
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sums</span><span class="p">)),</span> <span class="p">[</span> <span class="n">sums</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tkeys</span> <span class="p">],</span> <span class="n">align</span><span class="o">=</span><span class="s">&#39;center&#39;</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s">&#39;green&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">(</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sums</span><span class="p">)),</span> <span class="n">tkeys</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">35</span><span class="p">,</span> <span class="n">horizontalalignment</span><span class="o">=</span><span class="s">&#39;right&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s">&#39;All Journals, 2005-2010&#39;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="../np-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">Model Organisms in Neuroscience 0.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Erick Peirson.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

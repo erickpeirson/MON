@@ -3,13 +3,23 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Model Organisms in Neuroscience's documentation!
-===========================================================
+Model Organisms in Neuroscience
+===============================
 
-Contents:
+.. autosummary::
 
-.. toctree::
-   :maxdepth: 2
+   main.paper
+   main.dictionary
+   main.find_names_batch
+   main.handle_result
+   main.handle_result_taxon
+   main.handle_paper_taxa
+   main.classify
+   main.merge
+
+
+.. automodule:: main
+    :members:
 
 
 
