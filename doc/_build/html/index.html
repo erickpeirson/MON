@@ -1,0 +1,392 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Model Organisms in Neuroscience &mdash; Model Organisms in Neuroscience 0.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Model Organisms in Neuroscience 0.1 documentation" href="#" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="np-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="#">Model Organisms in Neuroscience 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="model-organisms-in-neuroscience">
+<h1>Model Organisms in Neuroscience<a class="headerlink" href="#model-organisms-in-neuroscience" title="Permalink to this headline">¶</a></h1>
+<table border="1" class="longtable docutils">
+<colgroup>
+<col width="10%" />
+<col width="90%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><a class="reference internal" href="#main.paper" title="main.paper"><tt class="xref py py-obj docutils literal"><span class="pre">main.paper</span></tt></a>(uri,&nbsp;abstract,&nbsp;journal,&nbsp;title)</td>
+<td>Describes a minimal PubMed entry.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#main.dictionary" title="main.dictionary"><tt class="xref py py-obj docutils literal"><span class="pre">main.dictionary</span></tt></a>()</td>
+<td>A two-way index for integer/string pairs.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#main.find_names_batch" title="main.find_names_batch"><tt class="xref py py-obj docutils literal"><span class="pre">main.find_names_batch</span></tt></a>(papers[,&nbsp;...])</td>
+<td>Named Entity Recognition step.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#main.handle_result" title="main.handle_result"><tt class="xref py py-obj docutils literal"><span class="pre">main.handle_result</span></tt></a>(result)</td>
+<td>Assigns taxon matches from NER to each respective paper.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#main.handle_result_taxon" title="main.handle_result_taxon"><tt class="xref py py-obj docutils literal"><span class="pre">main.handle_result_taxon</span></tt></a>(result)</td>
+<td>Parse the taxon ID porition of LINNAEUS NER result.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#main.handle_paper_taxa" title="main.handle_paper_taxa"><tt class="xref py py-obj docutils literal"><span class="pre">main.handle_paper_taxa</span></tt></a>(uri)</td>
+<td>Applies logic for assigning taxon-group hits to journals.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference internal" href="#main.classify" title="main.classify"><tt class="xref py py-obj docutils literal"><span class="pre">main.classify</span></tt></a>(taxon)</td>
+<td>Yields the higher-level taxonomic group to which taxon belongs.</td>
+</tr>
+<tr class="row-even"><td><a class="reference internal" href="#main.merge" title="main.merge"><tt class="xref py py-obj docutils literal"><span class="pre">main.merge</span></tt></a>(result)</td>
+<td>Uses NCBI Taxonomy XML response to decide to which higher-level</td>
+</tr>
+</tbody>
+</table>
+<span class="target" id="module-main"></span><dl class="function">
+<dt id="main.classify">
+<tt class="descclassname">main.</tt><tt class="descname">classify</tt><big>(</big><em>taxon</em><big>)</big><a class="reference internal" href="_modules/main.html#classify"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.classify" title="Permalink to this definition">¶</a></dt>
+<dd><p>Yields the higher-level taxonomic group to which taxon belongs.</p>
+<p>Retrieves data for taxon from NCBI Taxonomy, then passes the result
+to merge() to classify. Uses classified (dict) to cache results.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>taxon</strong> : str</p>
+<blockquote>
+<div><p>NCBI Taxonomy ID.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>merged</strong> : str</p>
+<blockquote class="last">
+<div><p>Taxon category (e.g. &#8216;Human&#8217;, &#8216;Mouse or Rat&#8217;, etc).</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="main.dictionary">
+<em class="property">class </em><tt class="descclassname">main.</tt><tt class="descname">dictionary</tt><a class="reference internal" href="_modules/main.html#dictionary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.dictionary" title="Permalink to this definition">¶</a></dt>
+<dd><p>A two-way index for integer/string pairs.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.find_names_batch">
+<tt class="descclassname">main.</tt><tt class="descname">find_names_batch</tt><big>(</big><em>papers</em>, <em>linnaeus_path='/Applications/linnaeus/bin/linnaeus-2.0.jar'</em>, <em>outpath='./'</em><big>)</big><a class="reference internal" href="_modules/main.html#find_names_batch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.find_names_batch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Named Entity Recognition step.</p>
+<p>Generates a temporary directory containing one text file per paper (title+abstract),
+and throws LINNAEUS at it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>papers</strong> : list</p>
+<blockquote>
+<div><p>A list of <a class="reference internal" href="#main.paper" title="main.paper"><tt class="xref py py-class docutils literal"><span class="pre">paper</span></tt></a> objects.</p>
+</div></blockquote>
+<p><strong>linnaeus_path</strong> : str</p>
+<blockquote>
+<div><p>Path to LINNAEUS .jar file.</p>
+</div></blockquote>
+<p><strong>outpath</strong> : str</p>
+<blockquote>
+<div><p>Target directory for NER results.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>resultspath</strong> : str</p>
+<blockquote class="last">
+<div><p>Path to CSV-formated NER results file.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.handle_paper_taxa">
+<tt class="descclassname">main.</tt><tt class="descname">handle_paper_taxa</tt><big>(</big><em>uri</em><big>)</big><a class="reference internal" href="_modules/main.html#handle_paper_taxa"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.handle_paper_taxa" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies logic for assigning taxon-group hits to journals.</p>
+<p>Humans are treated slightly differently than the rest. To accrue a hit
+for &#8216;Human&#8217;, it must be the only hit for that paper, or there must have
+been at least two hits for that paper.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>uri</strong> : str</p>
+<blockquote>
+<div><p>URI belonging to a <a class="reference internal" href="#main.paper" title="main.paper"><tt class="xref py py-class docutils literal"><span class="pre">paper</span></tt></a>.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>to_increment</strong> : dict</p>
+<blockquote class="last">
+<div><p>Keys are taxon-groups to increment for corresponding journal,
+values are the amount to increment each taxon-group.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.handle_result">
+<tt class="descclassname">main.</tt><tt class="descname">handle_result</tt><big>(</big><em>result</em><big>)</big><a class="reference internal" href="_modules/main.html#handle_result"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.handle_result" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assigns taxon matches from NER to each respective paper.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>result</strong> : list</p>
+<blockquote class="last">
+<div><p>A CSV-parsed row from the LINNAEUS NER results file.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.handle_result_taxon">
+<tt class="descclassname">main.</tt><tt class="descname">handle_result_taxon</tt><big>(</big><em>result</em><big>)</big><a class="reference internal" href="_modules/main.html#handle_result_taxon"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.handle_result_taxon" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parse the taxon ID porition of LINNAEUS NER result.</p>
+<p>If multiple possible taxa are suggested, chooses the one with the greater
+confidence level.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>result</strong> : list</p>
+<blockquote>
+<div><p>A CSV-parsed row from the LINNAEUS NER results file.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>str</strong> :</p>
+<blockquote class="last">
+<div><p>NCBI Taxonomy ID for NER-matched taxon.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.merge">
+<tt class="descclassname">main.</tt><tt class="descname">merge</tt><big>(</big><em>result</em><big>)</big><a class="reference internal" href="_modules/main.html#merge"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.merge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uses NCBI Taxonomy XML response to decide to which higher-level
+taxonomic group a taxon belongs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>result</strong> : ET XML object</p>
+<blockquote>
+<div><p>NCBI Taxonomy response.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>str</strong> :</p>
+<blockquote class="last">
+<div><p>Taxon category (e.g. &#8216;Human&#8217;, &#8216;Mouse or Rat&#8217;, etc).</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="class">
+<dt id="main.paper">
+<em class="property">class </em><tt class="descclassname">main.</tt><tt class="descname">paper</tt><big>(</big><em>uri</em>, <em>abstract</em>, <em>journal</em>, <em>title</em><big>)</big><a class="reference internal" href="_modules/main.html#paper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.paper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Describes a minimal PubMed entry.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.remove_integers">
+<tt class="descclassname">main.</tt><tt class="descname">remove_integers</tt><big>(</big><em>t</em><big>)</big><a class="reference internal" href="_modules/main.html#remove_integers"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.remove_integers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes words that cannot be cast as integers.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><strong>t</strong> : list</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><strong>new_t</strong> : list</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.remove_stopwords">
+<tt class="descclassname">main.</tt><tt class="descname">remove_stopwords</tt><big>(</big><em>t</em><big>)</big><a class="reference internal" href="_modules/main.html#remove_stopwords"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.remove_stopwords" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes words found in the NLTK <tt class="docutils literal"><span class="pre">stopwords</span></tt> corpus.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><p class="first"><strong>t</strong> : list</p>
+<blockquote>
+<div><p>A list of strings.</p>
+</div></blockquote>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><p class="first"><strong>list</strong> :</p>
+<blockquote class="last">
+<div><p>A somewhat shorter list of strings.</p>
+</div></blockquote>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.strip_non_ascii">
+<tt class="descclassname">main.</tt><tt class="descname">strip_non_ascii</tt><big>(</big><em>string</em><big>)</big><a class="reference internal" href="_modules/main.html#strip_non_ascii"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.strip_non_ascii" title="Permalink to this definition">¶</a></dt>
+<dd><p>Beligerently removes non-ASCII characters</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><strong>string</strong> : str</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><strong>stripped_string</strong> : str</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="main.to_path">
+<tt class="descclassname">main.</tt><tt class="descname">to_path</tt><big>(</big><em>uri</em><big>)</big><a class="reference internal" href="_modules/main.html#to_path"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#main.to_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Converts a URI to something that can be used as a filepath.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters :</th><td class="field-body"><strong>uri</strong> : str</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns :</th><td class="field-body"><strong>path</strong> : str</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Model Organisms in Neuroscience</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/index.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="np-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="#">Model Organisms in Neuroscience 0.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Erick Peirson.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
